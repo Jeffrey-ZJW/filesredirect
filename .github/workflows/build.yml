@@ -1,0 +1,43 @@
+name: Build Tweak
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install ldid
+      run: brew install ldid
+
+    - name: Install Theos
+      run: |
+        export THEOS=$HOME/theos
+        git clone --recursive https://github.com/theos/theos.git $THEOS
+        echo "THEOS=$THEOS" >> $GITHUB_ENV
+        echo "$THEOS/bin" >> $GITHUB_PATH
+
+    - name: Install SDK
+      run: |
+        git clone https://github.com/theos/sdks.git $THEOS/sdks-tmp
+        mkdir -p $THEOS/sdks
+        mv $THEOS/sdks-tmp/iPhoneOS*.sdk $THEOS/sdks/ 2>/dev/null || true
+        rm -rf $THEOS/sdks-tmp
+        ls $THEOS/sdks
+
+    - name: Build
+      run: |
+        make clean
+        make package
+
+    - name: Upload deb
+      uses: actions/upload-artifact@v4
+      with:
+        name: filesredirect-deb
+        path: packages/*.deb
