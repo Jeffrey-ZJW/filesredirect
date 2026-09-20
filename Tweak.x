@@ -1,41 +1,30 @@
-// Tweak.x
-// 把 files.txt 的请求 URL 改成 file:// 指向本地 appfiles.txt
-
+// Tweak.x - 优化版
 #import <substrate.h>
 #import <Foundation/Foundation.h>
 
 static NSString *const kLocalFile = @"/private/var/mobile/Media/Downloads/appfiles.txt";
-static NSString *const kTarget = @"files.txt";
 
-%hook NSMutableURLRequest
+%hook NSURLSession
 
-- (void)setURL:(NSURL *)URL {
-    NSString *urlStr = URL.absoluteString;
-    if (urlStr && [urlStr rangeOfString:kTarget].location != NSNotFound) {
-        NSURL *localURL = [NSURL fileURLWithPath:kLocalFile];
-        NSLog(@"[FilesRedirect] 替换 %@  →  %@", urlStr, localURL.absoluteString);
-        %orig(localURL);
-        return;
+- (NSURLSessionDataTask *)dataTaskWithRequest:(NSURLRequest *)request
+                            completionHandler:(void (^)(NSData *, NSURLResponse *, NSError *))completionHandler {
+    NSString *urlStr = request.URL.absoluteString;
+    const char *cstr = urlStr.UTF8String;
+
+    // 快速判断，没命中立即放行（strstr 比 rangeOfString 快 10-100 倍）
+    if (!cstr || !strstr(cstr, "files.txt")) {
+        return %orig;
     }
-    %orig;
-}
 
-%end
+    // 命中，替换 URL 指向本地文件
+    NSMutableURLRequest *newReq = [request mutableCopy];
+    newReq.URL = [NSURL fileURLWithPath:kLocalFile];
 
-%hook NSURLRequest
-
-+ (instancetype)requestWithURL:(NSURL *)URL {
-    NSString *urlStr = URL.absoluteString;
-    if (urlStr && [urlStr rangeOfString:kTarget].location != NSNotFound) {
-        NSURL *localURL = [NSURL fileURLWithPath:kLocalFile];
-        NSLog(@"[FilesRedirect] requestWithURL 替换 → %@", localURL.absoluteString);
-        return %orig(localURL);
-    }
-    return %orig;
+    return %orig(newReq, completionHandler);
 }
 
 %end
 
 %ctor {
-    NSLog(@"[FilesRedirect] loaded, 目标=%@, 本地=%@", kTarget, kLocalFile);
+    // 不写 NSLog，避免同步 IO
 }
