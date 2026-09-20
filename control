@@ -1,0 +1,9 @@
+Package: com.zjw.filesredirect
+Name: FilesRedirect
+Version: 1.0.0
+Architecture: iphoneos-arm
+Description: Redirect files.txt request to local appfiles.txt
+Maintainer: zjw
+Author: zjw
+Section: Tweaks
+Depends: mobilesubstrate
